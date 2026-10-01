@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">EcoLink</string>
+    <string name="mapbox_access_token" translatable="false">pk.eyJ1Ijoid2FzMjlrZW0wMSIsImEiOiJjbXVncHdwZjkwb3p4MnpzZWZkeGd6d214In0.bSxWbFb9NqUQ5Gve5xT67g</string>
 </resources>

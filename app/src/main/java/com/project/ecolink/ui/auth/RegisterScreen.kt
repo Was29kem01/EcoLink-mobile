@@ -30,7 +30,7 @@ import com.project.ecolink.data.AppSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegisterScreen(onRegisterSuccess: (String) -> Unit, onNavigateToLogin: () -> Unit) {
+fun RegisterScreen(onRegisterSuccess: (String, Int) -> Unit, onNavigateToLogin: () -> Unit) {
     val language = AppSettings.appLanguage
 
     var fullName by remember { mutableStateOf("") }
@@ -39,6 +39,9 @@ fun RegisterScreen(onRegisterSuccess: (String) -> Unit, onNavigateToLogin: () ->
     var isPasswordVisible by remember { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
     var sector by remember { mutableStateOf("Bastos, Yaoundé") }
+    
+    var selectedRole by remember { mutableStateOf("CLIENT") }
+    var branchCode by remember { mutableStateOf("") }
 
     var isSubmitting by remember { mutableStateOf(false) }
 
@@ -141,6 +144,37 @@ fun RegisterScreen(onRegisterSuccess: (String) -> Unit, onNavigateToLogin: () ->
                     shape = RoundedCornerShape(14.dp)
                 )
 
+                // Role Selector Tabs
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { selectedRole = "CLIENT" },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (selectedRole == "CLIENT") mossPrimary else Color.LightGray),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(if (language == AppLanguage.FRENCH) "Citoyen" else "Citizen", color = Color.White)
+                    }
+                    Button(
+                        onClick = { selectedRole = "FIELD_AGENT" },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (selectedRole == "FIELD_AGENT") mossPrimary else Color.LightGray),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(if (language == AppLanguage.FRENCH) "Agent" else "Agent", color = Color.White)
+                    }
+                }
+
+                if (selectedRole == "FIELD_AGENT") {
+                    OutlinedTextField(
+                        value = branchCode,
+                        onValueChange = { branchCode = it },
+                        label = { Text(if (language == AppLanguage.FRENCH) "Code Secret de Branche" else "Secret Branch Code") },
+                        textStyle = TextStyle(color = darkMoss, fontWeight = FontWeight.Bold, fontSize = 14.sp),
+                        leadingIcon = { Icon(Icons.Default.Lock, null, tint = clayAccent) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                }
                 // Password Field with Eye Visibility Toggle Icon
                 OutlinedTextField(
                     value = password,
@@ -172,14 +206,14 @@ fun RegisterScreen(onRegisterSuccess: (String) -> Unit, onNavigateToLogin: () ->
                         AppSettings.currentUserEmail = email.ifEmpty { "citizen@propre.com" }
                         AppSettings.currentUserPhone = phone
                         AppSettings.currentUserSector = sector
-                        onRegisterSuccess("CLIENT")
+                        onRegisterSuccess(selectedRole, 1)
                     },
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = mossPrimary),
                     modifier = Modifier.fillMaxWidth().height(52.dp)
                 ) {
                     Text(
-                        if (language == AppLanguage.FRENCH) "Créer un Compte Citoyen" else "Create Citizen Account",
+                        if (language == AppLanguage.FRENCH) "Créer un Compte" else "Create Account",
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp
                     )

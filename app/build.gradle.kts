@@ -6,16 +6,17 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
-    kotlin("kapt")
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 android {
     namespace = "com.project.ecolink"
-    compileSdk = 36
+    compileSdk = 35
     defaultConfig {
         applicationId = "com.project.ecolink"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
         
@@ -24,8 +25,8 @@ android {
         if (propertiesFile.exists()) {
             properties.load(FileInputStream(propertiesFile))
         }
-        val mapsApiKey = properties.getProperty("MAPS_API_KEY", "")
-        manifestPlaceholders["API_KEY"] = mapsApiKey
+        val mapboxToken = properties.getProperty("MAPBOX_ACCESS_TOKEN", "pk.your_public_token_here")
+        manifestPlaceholders["MAPBOX_ACCESS_TOKEN"] = mapboxToken
     }
 
     buildTypes {
@@ -56,12 +57,22 @@ kotlin {
     jvmToolchain(17)
 }
 
+ksp {
+    arg("room.generateKotlin", "true")
+}
+
+tasks.withType<JavaCompile> {
+    options.isFork = false
+}
+
 dependencies {
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)
   androidTestImplementation(composeBom)
 
   // Core Android dependencies
+  implementation(platform(libs.firebase.bom))
+  implementation(libs.firebase.auth)
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.activity.compose)
@@ -74,18 +85,18 @@ dependencies {
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
-  implementation("androidx.compose.material:material-icons-extended")
+  implementation(libs.androidx.compose.material.icons.extended)
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-  // Local tests: jUnit, coroutines, Android runner
+  // Local tests: JUnit, coroutines, Android runner
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
 
-  // Instrumented tests: jUnit rules and runners
+  // Instrumented tests: JUnit rules and runners
   androidTestImplementation(libs.androidx.test.core)
   androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.androidx.test.runner)
@@ -96,7 +107,11 @@ dependencies {
 // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    "kapt"(libs.androidx.room.compiler)
+    ksp(libs.androidx.room.compiler)
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
+    
+    // Mapbox
+    implementation(libs.mapbox.maps.android)
+    implementation(libs.mapbox.extension.maps.compose)
 }

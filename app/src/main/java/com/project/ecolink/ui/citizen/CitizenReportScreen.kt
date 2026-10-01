@@ -1,6 +1,7 @@
 package com.project.ecolink.ui.citizen
 
 import androidx.compose.foundation.background
+import org.json.JSONArray
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,16 +27,44 @@ fun CitizenReportsScreen(modifier: Modifier = Modifier) {
     val language = AppSettings.appLanguage
     var selectedReport by remember { mutableStateOf<ReportItem?>(null) }
 
-    val reports = remember(language) {
-        if (language == AppLanguage.FRENCH) listOf(
-            ReportItem("101", "Rue 1.234, Emombo, Yaoundé", "Aujourd'hui, 08:14", "En attente", "Plastiques & Bouteilles", "Paul Biya (Agent #05)", Color(0xFF7A8272), Color(0xFFEDEAE1)),
-            ReportItem("102", "Carrefour Nlongkak, Yaoundé", "Hier, 17:40", "Affecté", "Bac débordant", "Samuel Eto (Agent #06)", Color(0xFF8A6119), Color(0xFFFBF1DE)),
-            ReportItem("103", "Marché Mokolo, entrée B", "Il y a 3 jours", "Collecté", "Dépôt sauvage", "Francis Ngannou (Agent #07)", Color(0xFF4E8B5C), Color(0xFFE4F0E5))
-        ) else listOf(
-            ReportItem("101", "Rue 1.234, Emombo, Yaoundé", "Today, 08:14 AM", "Pending", "Plastic & Bottled waste", "Paul Biya (Agent #05)", Color(0xFF7A8272), Color(0xFFEDEAE1)),
-            ReportItem("102", "Carrefour Nlongkak, Yaoundé", "Yesterday, 05:40 PM", "Assigned", "Overflowing bin", "Samuel Eto (Agent #06)", Color(0xFF8A6119), Color(0xFFFBF1DE)),
-            ReportItem("103", "Marché Mokolo, Entrance B", "3 days ago", "Collected", "Illegal dumping", "Francis Ngannou (Agent #07)", Color(0xFF4E8B5C), Color(0xFFE4F0E5))
-        )
+    val reports = remember { mutableStateListOf<ReportItem>() }
+
+    LaunchedEffect(Unit) {
+        val jsonArray = com.project.ecolink.data.remote.EcoLinkApiClient.getAssignedReports()
+        if (jsonArray != null) {
+            val liveReports = mutableListOf<ReportItem>()
+            for (i in 0 until jsonArray.length()) {
+                val item = jsonArray.getJSONObject(i)
+                val status = item.optString("status", "PENDING")
+                
+                // Map status to visual badge colors
+                val badgeColor = when (status) {
+                    "COLLECTED" -> Color(0xFF4E8B5C)
+                    "ASSIGNED" -> Color(0xFF8A6119)
+                    else -> Color(0xFF7A8272)
+                }
+                val badgeBg = when (status) {
+                    "COLLECTED" -> Color(0xFFE4F0E5)
+                    "ASSIGNED" -> Color(0xFFFBF1DE)
+                    else -> Color(0xFFEDEAE1)
+                }
+
+                liveReports.add(
+                    ReportItem(
+                        id = item.optInt("id").toString(),
+                        location = "Lat: ${item.optDouble("latitude")}, Lng: ${item.optDouble("longitude")}",
+                        time = item.optString("createdAt", "Just now"),
+                        status = status,
+                        category = "Waste Issue", // Removed hardcoded 'Plastiques' since backend doesn't track it
+                        assignedAgent = if (item.isNull("assignedToId")) "Unassigned" else "Agent #${item.optInt("assignedToId")}",
+                        badgeColor = badgeColor,
+                        badgeBg = badgeBg
+                    )
+                )
+            }
+            reports.clear()
+            reports.addAll(liveReports)
+        }
     }
 
     // Interactive Report Detail & Tracking Timeline Modal

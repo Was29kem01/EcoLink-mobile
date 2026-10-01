@@ -127,7 +127,7 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "Clean City Initiative • Douala & Yaoundé",
+                text = "Clean City Initiative",
                 fontSize = 12.sp,
                 color = Color.Gray,
                 fontWeight = FontWeight.Medium

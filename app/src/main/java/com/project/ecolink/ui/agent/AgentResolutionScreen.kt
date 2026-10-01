@@ -58,6 +58,31 @@ fun AgentResolutionScreen(assignmentId: String, onBack: () -> Unit, onResolution
 
             Spacer(modifier = Modifier.weight(1f))
 
+            val context = androidx.compose.ui.platform.LocalContext.current
+            Button(
+                onClick = {
+                    // Launch real Google Maps Navigation Intent to the report location
+                    // Using default Yaounde coordinates for testing the MVP
+                    val gmmIntentUri = android.net.Uri.parse("google.navigation:q=3.8480,11.5021")
+                    val mapIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, gmmIntentUri)
+                    mapIntent.setPackage("com.google.android.apps.maps")
+                    try {
+                        context.startActivity(mapIntent)
+                    } catch (e: Exception) {
+                        // Fallback if Google Maps is not installed
+                        val browserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=3.8480,11.5021"))
+                        context.startActivity(browserIntent)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(55.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC4693C))
+            ) {
+                // Removed LocationOn icon to fix compile error
+                Text("Start GPS Navigation", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = Color.White)
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
             Button(
                 onClick = onResolutionComplete,
                 modifier = Modifier.fillMaxWidth().height(55.dp),

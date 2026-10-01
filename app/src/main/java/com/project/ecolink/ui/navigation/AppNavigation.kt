@@ -17,6 +17,7 @@ import com.project.ecolink.ui.citizen.CitizenDashboard
 fun AppNavigation() {
     var currentScreen by remember { mutableStateOf("SPLASH") }
     var userRole by remember { mutableStateOf<String?>(null) }
+    var activeUserId by remember { mutableStateOf<Int?>(null) }
     var activeAssignmentId by remember { mutableStateOf<String?>(null) }
 
     when (currentScreen) {
@@ -24,21 +25,23 @@ fun AppNavigation() {
             onSplashFinished = { currentScreen = "LOGIN" }
         )
         "LOGIN" -> LoginScreen(
-            onLoginSuccess = { role ->
+            onLoginSuccess = { role, userId ->
                 userRole = role
+                activeUserId = userId
                 currentScreen = if (role == "FIELD_AGENT") "AGENT_HOME" else "CITIZEN_HOME"
             },
             onNavigateToRegister = { currentScreen = "REGISTER" }
         )
         "REGISTER" -> RegisterScreen(
-            onRegisterSuccess = { role ->
+            onRegisterSuccess = { role, userId ->
                 userRole = role
-                currentScreen = if (role == "FIELD_AGENT_PENDING") "PENDING_APPROVAL" else "CITIZEN_HOME"
+                activeUserId = userId
+                currentScreen = if (role == "FIELD_AGENT") "AGENT_HOME" else "CITIZEN_HOME"
             },
             onNavigateToLogin = { currentScreen = "LOGIN" }
         )
         "CITIZEN_HOME" -> {
-            CitizenDashboard(onLogout = { currentScreen = "LOGIN"; userRole = null })
+            CitizenDashboard(onLogout = { currentScreen = "LOGIN"; userRole = null; activeUserId = null })
         }
         "AGENT_HOME" -> {
             AgentDashboard(

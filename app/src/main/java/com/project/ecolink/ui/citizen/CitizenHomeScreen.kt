@@ -1,6 +1,8 @@
 package com.project.ecolink.ui.citizen
 
 import android.Manifest
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.launch
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -60,8 +62,8 @@ fun CitizenHomeScreen(
         )
     }
 
-    var category by remember(categories) { mutableStateOf(categories[0]) }
-    var expanded by remember { mutableStateOf(false) }
+    var description by remember { mutableStateOf("") }
+    var photoErrorDialog by remember { mutableStateOf(false) }
     
     // Live Dynamic Location Coordinates
     var currentSectorName by remember { mutableStateOf("Rue 1.234, Emombo, Yaoundé") }
@@ -131,43 +133,26 @@ fun CitizenHomeScreen(
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
                     )
 
-                    // Interactive Simulated Vector Map Canvas Area
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .background(Color(0xFFE5E0D4)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = Color(0xFF2F4B3C),
-                                modifier = Modifier.size(56.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White.copy(alpha = 0.95f),
-                                shadowElevation = 4.dp
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        currentSectorName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF121A15)
-                                    )
-                                    Text(
-                                        "Lat: ${String.format("%.4f", currentLat)}, Lng: ${String.format("%.4f", currentLng)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFFC4693C),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                    // Actual Mapbox Map
+                    com.mapbox.maps.extension.compose.MapboxMap(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        style = { com.mapbox.maps.extension.compose.style.MapStyle(style = com.mapbox.maps.Style.MAPBOX_STREETS) },
+                        mapViewportState = com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState {
+                            setCameraOptions {
+                                zoom(14.0)
+                                center(com.mapbox.geojson.Point.fromLngLat(currentLng, currentLat))
                             }
+                        },
+                        onMapClickListener = { point ->
+                            currentLat = point.latitude()
+                            currentLng = point.longitude()
+                            currentSectorName = "Custom Pin Location"
+                            true
                         }
+                    ) {
+                        com.mapbox.maps.extension.compose.annotation.generated.PointAnnotation(
+                            point = com.mapbox.geojson.Point.fromLngLat(currentLng, currentLat)
+                        )
                     }
 
                     // Sector Pin Selector Bar
@@ -318,8 +303,27 @@ fun CitizenHomeScreen(
             title = { Text(if (language == AppLanguage.FRENCH) "Signalement Envoyé !" else "Report Submitted!") },
             text = { Text(if (language == AppLanguage.FRENCH) "Votre signalement a été transmis à la station EcoLink la plus proche (${currentSectorName}). Merci pour votre civisme." else "Your report for ${currentSectorName} has been queued for collection by the local EcoLink dispatch team.") },
             confirmButton = {
-                TextButton(onClick = { submitSuccessDialog = false }) {
+                TextButton(onClick = { 
+                    submitSuccessDialog = false 
+                    description = ""
+                    capturedBitmap = null
+                }) {
                     Text("OK", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // Missing Photo Error Dialog
+    if (photoErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { photoErrorDialog = false },
+            icon = { Icon(Icons.Default.Error, contentDescription = null, tint = Color(0xFFC4693C), modifier = Modifier.size(36.dp)) },
+            title = { Text(if (language == AppLanguage.FRENCH) "Photo Requise" else "Photo Required") },
+            text = { Text(if (language == AppLanguage.FRENCH) "Veuillez prendre une photo du site avant de soumettre le signalement. Cela aide nos agents à mieux préparer leur intervention." else "Please capture a photo of the waste before submitting. This is strictly required for our field agents to prepare logistics.") },
+            confirmButton = {
+                TextButton(onClick = { photoErrorDialog = false }) {
+                    Text("OK", fontWeight = FontWeight.Bold, color = Color(0xFFC4693C))
                 }
             }
         )
@@ -376,18 +380,28 @@ fun CitizenHomeScreen(
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
         )
 
-        // Offline Notification Banner
+        val isOnline by com.project.ecolink.utils.NetworkConnectivityObserver(context).observe().collectAsState(initial = true)
+        
+        // Network Status Banner
         Surface(
-            color = Color(0xFFC4693C).copy(alpha = 0.12f),
+            color = if (isOnline) Color(0xFF4E8B5C).copy(alpha = 0.12f) else Color(0xFFC4693C).copy(alpha = 0.12f),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             shape = RoundedCornerShape(10.dp)
         ) {
             Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.WifiOff, contentDescription = null, tint = Color(0xFFC4693C), modifier = Modifier.size(16.dp))
+                Icon(
+                    if (isOnline) Icons.Default.Wifi else Icons.Default.WifiOff, 
+                    contentDescription = null, 
+                    tint = if (isOnline) Color(0xFF4E8B5C) else Color(0xFFC4693C), 
+                    modifier = Modifier.size(16.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    if (language == AppLanguage.FRENCH) "Mode Hors-Ligne Actif — Enregistrement local sécurisé" else "Offline Mode Active — Auto-sync on network reconnect",
-                    color = Color(0xFFC4693C),
+                    text = if (isOnline) 
+                        (if (language == AppLanguage.FRENCH) "Connecté — Mode En Ligne" else "Online — Secure connection active") 
+                    else 
+                        (if (language == AppLanguage.FRENCH) "Mode Hors-Ligne Actif — Sauvegarde locale en attente" else "Offline Mode Active — Auto-sync on network reconnect"),
+                    color = if (isOnline) Color(0xFF4E8B5C) else Color(0xFFC4693C),
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -578,43 +592,87 @@ fun CitizenHomeScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Waste Category Dropdown
+        // Description Area
         Text(
-            if (language == AppLanguage.FRENCH) "CATÉGORIE DE DÉCHETS" else "WASTE CATEGORY",
+            if (language == AppLanguage.FRENCH) "DESCRIPTION (OBLIGATOIRE)" else "DESCRIPTION (REQUIRED)",
             style = MaterialTheme.typography.labelSmall,
             color = Color.Gray,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             fontWeight = FontWeight.Bold
         )
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded },
-            modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()
-        ) {
-            OutlinedTextField(
-                value = category,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-            )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                categories.forEach { item ->
-                    DropdownMenuItem(
-                        text = { Text(item) },
-                        onClick = { category = item; expanded = false }
-                    )
-                }
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .height(120.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = Color(0xFFE4DDCE),
+                focusedBorderColor = Color(0xFF2F4B3C)
+            ),
+            placeholder = {
+                Text(
+                    if (language == AppLanguage.FRENCH) "Décrivez la situation (ex: déchets mélangés bloquant la route...)" 
+                    else "Describe the situation (e.g., mixed waste blocking the road...)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
             }
-        }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // Simplified Submit Button Text: 'Submit Report' / 'Envoyer le Signalement'
+        val coroutineScope = rememberCoroutineScope()
+        var isSubmitting by remember { mutableStateOf(false) }
+
         Button(
-            onClick = { submitSuccessDialog = true },
+            onClick = { 
+                if (capturedBitmap == null) {
+                    photoErrorDialog = true
+                } else if (!isSubmitting) {
+                    isSubmitting = true
+                    coroutineScope.launch {
+                        val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                        val caps = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+                        val isOnline = caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+                        if (isOnline) {
+                            val success = com.project.ecolink.data.remote.EcoLinkApiClient.submitReport(
+                                currentLat,
+                                currentLng,
+                                "mockBase64ImageString" // Real base64 conversion can be added later to save memory
+                            )
+                            if (success) {
+                                submitSuccessDialog = true 
+                            } else {
+                                // Save locally if API fails
+                                val reportDao = com.project.ecolink.data.local.AppDatabase.getDatabase(context).reportDao()
+                                reportDao.insertReport(com.project.ecolink.data.local.ReportEntity(
+                                    photoPath = "mockBase64ImageString",
+                                    latitude = currentLat,
+                                    longitude = currentLng,
+                                    status = "OFFLINE_SYNC_PENDING"
+                                ))
+                                submitSuccessDialog = true
+                            }
+                        } else {
+                            // Offline - Save locally
+                            val reportDao = com.project.ecolink.data.local.AppDatabase.getDatabase(context).reportDao()
+                            reportDao.insertReport(com.project.ecolink.data.local.ReportEntity(
+                                photoPath = "mockBase64ImageString",
+                                latitude = currentLat,
+                                longitude = currentLng,
+                                status = "OFFLINE_SYNC_PENDING"
+                            ))
+                            submitSuccessDialog = true
+                        }
+                        isSubmitting = false
+                    }
+                }
+            },
             modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2F4B3C))

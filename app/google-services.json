@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "137353192064",
+    "project_id": "ecolink-f842d",
+    "storage_bucket": "ecolink-f842d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:137353192064:android:dbb4f1e77f4d48cd603c65",
+        "android_client_info": {
+          "package_name": "com.project.ecolink"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8ihNyvDvmlBtw6n-VF-3b-wdCVY4j0S4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,6 +1,7 @@
 package com.project.ecolink.ui.auth
 
 import androidx.compose.animation.*
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.PhoneAuthCredential
+import com.google.firebase.auth.PhoneAuthOptions
+import com.google.firebase.auth.PhoneAuthProvider
+import com.google.firebase.FirebaseException
 import androidx.compose.ui.window.Dialog
 import com.project.ecolink.data.AppLanguage
 import com.project.ecolink.data.AppSettings
@@ -38,7 +44,7 @@ import com.project.ecolink.data.AppSettings
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String) -> Unit,
+    onLoginSuccess: (String, Int) -> Unit,
     onNavigateToRegister: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
@@ -57,6 +63,10 @@ fun LoginScreen(
     var otpCode by remember { mutableStateOf("") }
     var recoveryEmail by remember { mutableStateOf("") }
     var countdownTimer by remember { mutableStateOf(30) }
+    
+    val auth = remember { FirebaseAuth.getInstance() }
+    var storedVerificationId by remember { mutableStateOf("") }
+    val activity = androidx.compose.ui.platform.LocalContext.current as? androidx.activity.ComponentActivity
 
     // 30-Second Countdown Timer for Code Resend
     LaunchedEffect(twoFaStep, countdownTimer) {
@@ -228,7 +238,7 @@ fun LoginScreen(
                                 onClick = { 
                                     show2FaModal = false
                                     twoFaStep = 1
-                                    onLoginSuccess("CLIENT")
+                                    onLoginSuccess("CLIENT", 1)
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = mossPrimary),
@@ -401,7 +411,7 @@ fun LoginScreen(
                         FilterChip(
                             selected = email.contains("citizen"),
                             onClick = {
-                                email = "citizen@ecolink.cm"
+                                email = "citizen@gmail.com"
                                 password = "password123"
                             },
                             label = { Text("Citizen", fontSize = 11.sp) },
@@ -414,7 +424,7 @@ fun LoginScreen(
                         FilterChip(
                             selected = email.contains("agent"),
                             onClick = {
-                                email = "agent@ecolink.cm"
+                                email = "agent@gmail.com"
                                 password = "password123"
                             },
                             label = { Text("Agent", fontSize = 11.sp) },
@@ -521,7 +531,7 @@ fun LoginScreen(
                         }
 
                         Text(
-                            text = if (activeLanguage == AppLanguage.FRENCH) "Mot de passe oublié (2FA)?" else "Forgot password (2FA)?",
+                            text = if (activeLanguage == AppLanguage.FRENCH) "Mot de passe oublié ?" else "Forgot password?",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = clayAccent,
@@ -535,6 +545,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Primary Submit Button with Strict Input Validation Error Catch
+                    val coroutineScope = rememberCoroutineScope()
                     Button(
                         onClick = {
                             if (email.isBlank() || password.isBlank()) {
@@ -544,8 +555,19 @@ fun LoginScreen(
                                     "Please enter your email address and password to log in!"
                             } else {
                                 isLoading = true
-                                val role = if (email.contains("agent")) "FIELD_AGENT" else "CLIENT"
-                                onLoginSuccess(role)
+                                coroutineScope.launch {
+                                    val success = com.project.ecolink.data.remote.EcoLinkApiClient.login(email, password)
+                                    isLoading = false
+                                    if (success) {
+                                        val role = if (email.contains("agent")) "FIELD_AGENT" else "CLIENT"
+                                        onLoginSuccess(role, 1)
+                                    } else {
+                                        errorMessage = if (activeLanguage == AppLanguage.FRENCH) 
+                                            "Identifiants incorrects ou serveur injoignable." 
+                                        else 
+                                            "Invalid credentials or server offline."
+                                    }
+                                }
                             }
                         },
                         enabled = !isLoading,
@@ -633,7 +655,7 @@ fun LoginScreen(
                             )
                             Text(
                                 text = if (activeLanguage == AppLanguage.FRENCH) 
-                                    "Créer un compte citoyen ou postuler" 
+                                    "Créer un compte citoyen ou agent" 
                                 else 
                                     "Create citizen account or apply as agent",
                                 fontSize = 11.sp,
